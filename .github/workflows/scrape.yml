@@ -27,9 +27,9 @@ jobs:
         run: python trustpilot_playwright_scraper.py
 
       - name: Upload results
-  uses: actions/upload-artifact@v4
-  with:
-    name: trustpilot-data
-    path: |
-      *.csv
-      screenshot_page*.png
+        uses: actions/upload-artifact@v4
+        with:
+          name: trustpilot-data
+          path: |
+            *.csv
+            screenshot_page*.png
