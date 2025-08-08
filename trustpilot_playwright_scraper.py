@@ -8,7 +8,7 @@ import time
 
 DOMAIN = "ukstoragecompany.co.uk"
 BASE_URL = f"https://uk.trustpilot.com/review/{DOMAIN}"
-PAGES_TO_SCRAPE = 2  # testing with 2 pages
+PAGES_TO_SCRAPE = 2  # for testing
 
 async def scrape():
     try:
@@ -21,8 +21,15 @@ async def scrape():
             for page_num in range(1, PAGES_TO_SCRAPE + 1):
                 url = f"{BASE_URL}?page={page_num}"
                 print(f"Scraping: {url}")
-                await page.goto(url)
-                await page.wait_for_selector("article.review")
+
+                await page.goto(url, wait_until="networkidle")
+                await page.screenshot(path=f"screenshot_page{page_num}.png")
+
+                try:
+                    await page.wait_for_selector("section[data-service-review-list]", timeout=60000)
+                except Exception:
+                    print(f"No review container found on page {page_num}, skipping...")
+                    continue
 
                 review_elements = await page.query_selector_all("article.review")
 
@@ -39,14 +46,13 @@ async def scrape():
                         "Date": date,
                     })
 
-                # polite delay to avoid being blocked
-                time.sleep(10)
+                time.sleep(5)  # 5 seconds delay per page
 
             await browser.close()
 
         df = pd.DataFrame(reviews)
-        filename = f"trustpilot_reviews_{datetime.date.today()}.xlsx"
-        df.to_excel(filename, index=False)
+        filename = f"trustpilot_reviews_{datetime.date.today()}.csv"
+        df.to_csv(filename, index=False, encoding="utf-8-sig")
         print(f"Saved {filename}")
 
     except Exception:
