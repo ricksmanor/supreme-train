@@ -4,17 +4,18 @@ import pandas as pd
 import datetime
 import traceback
 import sys
+import time
 
 DOMAIN = "ukstoragecompany.co.uk"
 BASE_URL = f"https://uk.trustpilot.com/review/{DOMAIN}"
-PAGES_TO_SCRAPE = 3  # Adjust number of pages to scrape
+PAGES_TO_SCRAPE = 2  # testing with 2 pages
 
 async def scrape():
     try:
         reviews = []
 
         async with async_playwright() as p:
-            browser = await p.chromium.launch()
+            browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
             for page_num in range(1, PAGES_TO_SCRAPE + 1):
@@ -26,10 +27,10 @@ async def scrape():
                 review_elements = await page.query_selector_all("article.review")
 
                 for r in review_elements:
-                    title = await r.query_selector_eval("h2", "el => el.textContent.trim()") or ""
-                    body = await r.query_selector_eval("p.review-content__text", "el => el.textContent.trim()") or ""
-                    rating = await r.query_selector_eval("div.star-rating img", "el => el.alt") or ""
-                    date = await r.query_selector_eval("time", "el => el.getAttribute('datetime')") or ""
+                    title = await r.query_selector_eval("h2", "el => el.textContent.trim()") if await r.query_selector("h2") else ""
+                    body = await r.query_selector_eval("p.review-content__text", "el => el.textContent.trim()") if await r.query_selector("p.review-content__text") else ""
+                    rating = await r.query_selector_eval("div.star-rating img", "el => el.alt") if await r.query_selector("div.star-rating img") else ""
+                    date = await r.query_selector_eval("time", "el => el.getAttribute('datetime')") if await r.query_selector("time") else ""
 
                     reviews.append({
                         "Title": title,
@@ -37,6 +38,9 @@ async def scrape():
                         "Rating": rating,
                         "Date": date,
                     })
+
+                # polite delay to avoid being blocked
+                time.sleep(10)
 
             await browser.close()
 
