@@ -6,7 +6,7 @@ on:
   workflow_dispatch:      # Manual trigger enabled
 
 permissions:
-  contents: write         # Allow pushing commits
+  contents: write
 
 jobs:
   scrape:
@@ -17,7 +17,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install OS dependencies for Playwright
-        run: sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxcomposite1 libxrandr2 libgbm1 libgtk-3-0 libxdamage1 libxfixes3 libpangocairo-1.0-0 libpango-1.0-0 libasound2
+        run: |
+          set -e
+          echo "Running apt-get update..."
+          sudo apt-get update -y
+          echo "Installing required packages..."
+          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libxcomposite1 libxrandr2 libgbm1 libgtk-3-0 libxdamage1 libxfixes3 \
+            libpangocairo-1.0-0 libpango-1.0-0 libasound2
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -40,11 +47,3 @@ jobs:
           git add *.xlsx
           git diff --cached --quiet || git commit -m "Update Trustpilot reviews"
           git push
-
-      - name: Install OS dependencies for Playwright
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-            libxcomposite1 libxrandr2 libgbm1 libgtk-3-0 libxdamage1 libxfixes3 \
-            libpangocairo-1.0-0 libpango-1.0-0 libasound2
-
