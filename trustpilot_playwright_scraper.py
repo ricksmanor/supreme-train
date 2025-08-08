@@ -1,69 +1,53 @@
+# trustpilot_scraper.py
 import asyncio
-from playwright.async_api import async_playwright
-import pandas as pd
-import datetime
-import traceback
-import sys
+import csv
 import time
+from playwright.async_api import async_playwright
 
-DOMAIN = "ukstoragecompany.co.uk"
-BASE_URL = f"https://uk.trustpilot.com/review/{DOMAIN}"
-PAGES_TO_SCRAPE = 2
-WAIT_PER_PAGE = 5  # seconds
+URL = "https://uk.trustpilot.com/review/ukstoragecompany.co.uk"
+PAGES_TO_SCRAPE = 2  # For testing
+DELAY_SECONDS = 5    # Wait between pages
 
 async def scrape():
-    try:
-        reviews = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+        # Prepare CSV
+        with open("reviews.csv", mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "Name", "Country", "Reviews Count", "Review Date", 
+                "Rating", "Title", "Text", "Date of Experience"
+            ])
 
             for page_num in range(1, PAGES_TO_SCRAPE + 1):
-                url = f"{BASE_URL}?page={page_num}"
+                url = f"{URL}?page={page_num}"
                 print(f"Scraping: {url}")
+                await page.goto(url, timeout=60000)
+                await page.wait_for_selector("article.review", timeout=60000)
+                time.sleep(DELAY_SECONDS)  # Give time for all content to load
 
-                await page.goto(url, wait_until="networkidle")
+                reviews = await page.query_selector_all("article.review")
+
+                for r in reviews:
+                    name = await r.query_selector_eval("span.typography_heading-xxs__QKBS8", "el => el.innerText") if await r.query_selector("span.typography_heading-xxs__QKBS8") else ""
+                    country = await r.query_selector_eval("div.typography_body-m__xgxZ_.styles_consumerDetails__dlqRH > span", "el => el.innerText") if await r.query_selector("div.typography_body-m__xgxZ_.styles_consumerDetails__dlqRH > span") else ""
+                    review_count = await r.query_selector_eval("div.typography_body-m__xgxZ_.styles_consumerDetails__dlqRH > a", "el => el.innerText") if await r.query_selector("div.typography_body-m__xgxZ_.styles_consumerDetails__dlqRH > a") else ""
+                    review_date = await r.query_selector_eval("time.typography_body-m__xgxZ_.styles_dates__3_M8n", "el => el.innerText") if await r.query_selector("time.typography_body-m__xgxZ_.styles_dates__3_M8n") else ""
+                    rating = await r.get_attribute("data-service-review-rating") or ""
+                    title = await r.query_selector_eval("h2.typography_heading-s__f7029", "el => el.innerText") if await r.query_selector("h2.typography_heading-s__f7029") else ""
+                    text = await r.query_selector_eval("p.typography_body-l__KUYFJ", "el => el.innerText") if await r.query_selector("p.typography_body-l__KUYFJ") else ""
+                    date_experience = await r.query_selector_eval("p.typography_body-m__xgxZ_", "el => el.innerText") if await r.query_selector("p.typography_body-m__xgxZ_") else ""
+
+                    writer.writerow([
+                        name, country, review_count, review_date,
+                        rating, title, text, date_experience
+                    ])
+
                 await page.screenshot(path=f"screenshot_page{page_num}.png")
 
-                try:
-                    await page.wait_for_selector("article[data-service-review-card-layout]", timeout=60000)
-                except Exception:
-                    print(f"No reviews found on page {page_num}")
-                    continue
-
-                review_elements = await page.query_selector_all("article[data-service-review-card-layout]")
-                print(f"Found {len(review_elements)} reviews on page {page_num}")
-
-                for r in review_elements:
-                    name = await r.query_selector_eval("span.typography_heading-xxs", "el => el.textContent.strip()") if await r.query_selector("span.typography_heading-xxs") else ""
-                    location = await r.query_selector_eval("span.typography_body-s", "el => el.textContent.strip()") if await r.query_selector("span.typography_body-s") else ""
-                    title = await r.query_selector_eval("h2", "el => el.textContent.strip()") if await r.query_selector("h2") else ""
-                    body = await r.query_selector_eval("p", "el => el.textContent.strip()") if await r.query_selector("p") else ""
-                    rating = await r.query_selector_eval("div star-rating img", "el => el.alt") if await r.query_selector("div star-rating img") else ""
-                    date = await r.query_selector_eval("time", "el => el.getAttribute('datetime')") if await r.query_selector("time") else ""
-
-                    reviews.append({
-                        "Name": name,
-                        "Location": location,
-                        "Title": title,
-                        "Body": body,
-                        "Rating": rating,
-                        "Date": date
-                    })
-
-                time.sleep(WAIT_PER_PAGE)
-
-            await browser.close()
-
-        filename = f"trustpilot_reviews_{datetime.date.today()}.csv"
-        pd.DataFrame(reviews).to_csv(filename, index=False, encoding="utf-8-sig")
-        print(f"✅ Saved {len(reviews)} reviews to {filename}")
-
-    except Exception:
-        print("Error during scraping:")
-        traceback.print_exc()
-        sys.exit(1)
+        await browser.close()
 
 if __name__ == "__main__":
     asyncio.run(scrape())
