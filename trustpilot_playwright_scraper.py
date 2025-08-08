@@ -9,8 +9,8 @@ import time
 # --- SETTINGS ---
 DOMAIN = "ukstoragecompany.co.uk"  # Change to your target
 BASE_URL = f"https://uk.trustpilot.com/review/{DOMAIN}"
-PAGES_TO_SCRAPE = 2  # Change to desired page count
-WAIT_PER_PAGE = 5  # Seconds delay between pages
+PAGES_TO_SCRAPE = 2  # For testing, increase later
+WAIT_PER_PAGE = 5  # seconds delay
 
 async def scrape():
     try:
@@ -28,12 +28,15 @@ async def scrape():
                 await page.screenshot(path=f"screenshot_page{page_num}.png")
 
                 try:
-                    await page.wait_for_selector("section[data-service-review-list]", timeout=60000)
+                    # Wait for review articles to appear
+                    await page.wait_for_selector("article.review", timeout=60000)
                 except Exception:
-                    print(f"No review container found on page {page_num}, skipping...")
+                    print(f"No reviews found on page {page_num}, skipping...")
                     continue
 
                 review_elements = await page.query_selector_all("article.review")
+
+                print(f"Found {len(review_elements)} reviews on page {page_num}")
 
                 for r in review_elements:
                     title = await r.query_selector_eval("h2", "el => el.textContent.trim()") if await r.query_selector("h2") else ""
@@ -41,22 +44,26 @@ async def scrape():
                     rating = await r.query_selector_eval("div.star-rating img", "el => el.alt") if await r.query_selector("div.star-rating img") else ""
                     date = await r.query_selector_eval("time", "el => el.getAttribute('datetime')") if await r.query_selector("time") else ""
 
-                    reviews.append({
+                    review_data = {
                         "Title": title,
                         "Body": body,
                         "Rating": rating,
                         "Date": date,
-                    })
+                    }
+                    print("Extracted review:", review_data)  # debug output
+                    reviews.append(review_data)
 
-                time.sleep(WAIT_PER_PAGE)  # Delay between pages
+                time.sleep(WAIT_PER_PAGE)  # Wait between pages
 
             await browser.close()
 
-        # Save results as CSV
-        df = pd.DataFrame(reviews)
-        filename = f"trustpilot_reviews_{datetime.date.today()}.csv"
-        df.to_csv(filename, index=False, encoding="utf-8-sig")
-        print(f"✅ Saved {filename}")
+        if reviews:
+            df = pd.DataFrame(reviews)
+            filename = f"trustpilot_reviews_{datetime.date.today()}.csv"
+            df.to_csv(filename, index=False, encoding="utf-8-sig")
+            print(f"✅ Saved {filename}")
+        else:
+            print("No reviews extracted.")
 
     except Exception:
         print("Error during scraping:")
