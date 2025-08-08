@@ -2,8 +2,8 @@ name: Trustpilot Playwright Scraper
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # Daily at 03:00 UTC
-  workflow_dispatch:      # Manual trigger enabled
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Install OS dependencies for Playwright
         run: |
@@ -24,10 +23,9 @@ jobs:
           echo "Installing required packages..."
           sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
             libxcomposite1 libxrandr2 libgbm1 libgtk-3-0 libxdamage1 libxfixes3 \
-            libpangocairo-1.0-0 libpango-1.0-0 libasound2
+            libpangocairo-1.0-0 libpango-1.0-0 libasound2t64
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
