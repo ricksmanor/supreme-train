@@ -6,9 +6,11 @@ import traceback
 import sys
 import time
 
-DOMAIN = "ukstoragecompany.co.uk"
+# --- SETTINGS ---
+DOMAIN = "ukstoragecompany.co.uk"  # Change to your target
 BASE_URL = f"https://uk.trustpilot.com/review/{DOMAIN}"
-PAGES_TO_SCRAPE = 2  # for testing
+PAGES_TO_SCRAPE = 2  # Change to desired page count
+WAIT_PER_PAGE = 5  # Seconds delay between pages
 
 async def scrape():
     try:
@@ -46,14 +48,15 @@ async def scrape():
                         "Date": date,
                     })
 
-                time.sleep(5)  # 5 seconds delay per page
+                time.sleep(WAIT_PER_PAGE)  # Delay between pages
 
             await browser.close()
 
+        # Save results as CSV
         df = pd.DataFrame(reviews)
         filename = f"trustpilot_reviews_{datetime.date.today()}.csv"
         df.to_csv(filename, index=False, encoding="utf-8-sig")
-        print(f"Saved {filename}")
+        print(f"✅ Saved {filename}")
 
     except Exception:
         print("Error during scraping:")
